@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Berber Randevu</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:720px;margin:20px auto;padding:0 12px}
+    h1{font-size:22px;margin:8px 0 16px}
+    fieldset{border:1px solid #ddd;border-radius:8px;margin:12px 0;padding:12px}
+    label{display:block;margin:8px 0 4px;font-weight:600}
+    input,select,button{width:100%;padding:10px;border:1px solid #ccc;border-radius:8px;font-size:16px}
+    button{cursor:pointer;margin-top:12px}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    #sonuc{margin-top:14px;padding:10px;border-radius:8px;background:#f6f7f9;white-space:pre-wrap}
+    small{color:#666}
+  </style>
+</head>
+<body>
+  <h1>Berber Randevu (Basit)</h1>
+
+  <fieldset>
+    <legend>Randevu Bilgileri</legend>
+
+    <label for="ad">Ad Soyad</label>
+    <input id="ad" placeholder="Örn: Ali Veli" />
+
+    <label for="tel">Telefon</label>
+    <input id="tel" placeholder="05xx xxx xx xx" />
+
+    <label for="berber">Berber seçiniz</label>
+    <select id="berber"></select>
+
+    <label for="hizmet">Hizmet seçiniz</label>
+    <select id="hizmet"></select>
+
+    <div class="row">
+      <div>
+        <label for="tarih">Tarih</label>
+        <input id="tarih" type="date" />
+      </div>
+      <div>
+        <label for="saat">Saat</label>
+        <select id="saat">
+          <option value="">Önce “Uygun saatleri getir”e basın</option>
+        </select>
+      </div>
+    </div>
+
+    <button id="btn-slots">Uygun saatleri getir</button>
+    <button id="btn-randevu">Randevu Al</button>
+    <div id="sonuc"></div>
+    <small>Not: Bu demo’da veriler geçici hafızada tutulur; servis yeniden başlarsa sıfırlanır.</small>
+  </fieldset>
+
+  <script>
+    const api = ""; // Aynı alan adı (Render) üzerinde çalışıyoruz
+
+    const $ = (id) => document.getElementById(id);
+    const sel = (el, items, getVal, getText) => {
+      el.innerHTML = "";
+      for (const it of items) {
+        const o = document.createElement("option");
+        o.value = getVal(it);
+        o.textContent = getText(it);
+        el.appendChild(o);
+      }
+    };
+
+    async function jget(url){ const r=await fetch(url); if(!r.ok) throw new Error(await r.text()); return r.json(); }
+    async function jpost(url,body){ const r=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)}); if(!r.ok) throw new Error(await r.text()); return r.json(); }
+
+    async function yukle(){
+      try{
+        const [barbers, services] = await Promise.all([
+          jget(`${api}/barbers`),
+          jget(`${api}/services`)
+        ]);
+        if(barbers.length===0 || services.length===0){
+          $("sonuc").textContent =
+            "Ön hazırlık: /docs ekranından en az 1 berber, 1 hizmet ekleyin; berber için çalışma saatleri tanımlayın.";
+        }
+        sel($("berber"), barbers, b=>b.id, b=>b.full_name);
+        sel($("hizmet"), services, s=>s.id, s=>`${s.name} (${s.duration_min} dk)`);
+      }catch(e){ $("sonuc").textContent = "Yükleme hatası: " + e.message; }
+    }
+
+    $("btn-slots").onclick = async () => {
+      $("sonuc").textContent = "Uygun saatler getiriliyor...";
+      const barberId = $("berber").value;
+      const serviceId = $("hizmet").value;
+      const date = $("tarih").value;
+      if(!barberId || !serviceId || !date){ $("sonuc").textContent="Lütfen berber, hizmet ve tarihi seçin."; return; }
+      try{
+        const data = await jget(`${api}/barbers/${barberId}/slots?service_id=${serviceId}&date=${date}`);
+        const times = data.slots.map(iso => new Date(iso).toTimeString().slice(0,5));
+        if(times.length===0){ $("saat").innerHTML = `<option value="">Uygun saat yok</option>`; $("sonuc").textContent=""; return; }
+        sel($("saat"), times, t=>t, t=>t);
+        $("sonuc").textContent = "Uygun saatler yüklendi.";
+      }catch(e){ $("sonuc").textContent = "Slot hatası: " + e.message; }
+    };
+
+    $("btn-randevu").onclick = async () => {
+      const ad = $("ad").value.trim();
+      const tel = $("tel").value.trim();
+      const barberId = Number($("berber").value);
+      const serviceId = Number($("hizmet").value);
+      const date = $("tarih").value;
+      const time = $("saat").value;
+      if(!ad || !tel || !barberId || !serviceId || !date || !time){
+        $("sonuc").textContent = "Lütfen tüm alanları doldurun ve saat seçin."; return;
+      }
+      try{
+        const cust = await jpost(`${api}/customers`, { full_name: ad, phone: tel });
+        const starts_at = new Date(`${date}T${time}:00`);
+        const appt = await jpost(`${api}/appointments`, {
+          shop_id: 1,
+          barber_id: barberId,
+          customer_id: cust.id,
+          service_id: serviceId,
+          starts_at: starts_at.toISOString()
+        });
+        $("sonuc").textContent = "Randevu oluşturuldu ✅\nRandevu ID: " + appt.id;
+      }catch(e){ $("sonuc").textContent = "Randevu hatası: " + e.message; }
+    };
+
+    yukle();
+  </script>
+</body>
+</html>
