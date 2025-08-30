@@ -1,12 +1,16 @@
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime, time, timedelta
-from dateutil import tz@app.get("/", response_class=HTMLResponse)
-def root():
-    return Path("index.html").read_text(encoding="utf-8")
+from dateutil import tz
+from fastapi.responses import HTMLResponse
+from pathlib import Path
 
-app = FastAPI(title="Berber Randevu (Basit)", version="0.0.1")
+app = FastAPI(title="Berber Randevu (Basit)")
+
+@app.get("/", response_class=HTMLResponse)
+def root():
+    return Path("index.html").read_text(encoding="utf-8")app = FastAPI(title="Berber Randevu (Basit)", version="0.0.1")
 
 # --- Bellek içi basit depolar (sunucu yeniden başlarsa sıfırlanır) ---
 services = []
