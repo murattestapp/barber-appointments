@@ -194,3 +194,6 @@ def list_appts(date: Optional[str] = None, barber_id: Optional[int] = None):
         s, e = local_date_bounds(date)
         out = [a for a in out if a["starts_at"] >= s and a["starts_at"] < e]
     return sorted(out, key=lambda x: x["starts_at"])
+@app.get("/", response_class=HTMLResponse)
+def root():
+    return Path("index.html").read_text(encoding="utf-8")
