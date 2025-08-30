@@ -2,7 +2,9 @@ from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from datetime import datetime, time, timedelta
-from dateutil import tz
+from dateutil import tz@app.get("/", response_class=HTMLResponse)
+def root():
+    return Path("index.html").read_text(encoding="utf-8")
 
 app = FastAPI(title="Berber Randevu (Basit)", version="0.0.1")
 
